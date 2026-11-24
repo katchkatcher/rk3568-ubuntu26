@@ -1,0 +1,18 @@
+# Imported Buildroot/Rockchip binaries (distributed as a separate release asset)
+/reference/*
+!/reference/README.md
+
+# Downloaded Ubuntu base image and checksum files
+/inputs/*
+!/inputs/README.md
+
+# Generated build data
+/work/*
+/output/*
+/dist/*
+
+# Editor / OS files
+*~
+.DS_Store
+.idea/
+.vscode/
