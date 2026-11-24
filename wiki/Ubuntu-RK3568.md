@@ -16,7 +16,7 @@
 Проект разделяет три группы файлов:
 
 1. **Git-репозиторий** — скрипты, параметры сборки и эта документация.
-2. **Reference asset bundle** — бинарные файлы, полученные из проверенного Buildroot и релизного каталога `rk3568-br-release`. Архив публикуется в Releases проекта и распаковывается в `reference/`.
+2. **Reference asset bundle** — бинарные файлы, полученные из проверенного Buildroot и релизного каталога `rk3568-br-release`. Архив располагается в [облаке](https://nextcloud.inmys.online/s/WWoAqMSmHgjw98R?opendetails=) и распаковывается в `reference/`.
 3. **Ubuntu base image** — официальный `ubuntu-26.04.1-preinstalled-server-arm64.img.xz`, который загружается скриптом в `inputs/ubuntu/` и проверяется по SHA256.
 
 ### Состав reference assets
@@ -35,14 +35,14 @@
 
 Из каталога `rk3568-br-release` намеренно не копируются `br_2024.02_rk3568.dd`, `rootfs.ext2`, `mbr.dat` и `burn.sh`: текущая сборка Ubuntu их не использует. Таблица разделов формируется непосредственно скриптом через `sfdisk`; Buildroot rootfs заменяется Ubuntu rootfs.
 
-Важно: сам каталог `rk3568-br-release` не содержит `Image`, DTB и `/lib/modules/6.12.61` согласно составу релизной папки. Для однократного создания reference bundle сопровождающему также нужен соответствующий Buildroot workspace с `output/images` и `output/target`. После публикации архива пользователям эти исходные каталоги уже не требуются.
+Важно: сам каталог `rk3568-br-release` не содержит `Image`, DTB и `/lib/modules/6.12.61` согласно составу релизной папки. Для однократного создания reference bundle сопровождающему также нужен соответствующий Buildroot workspace с `output/images` и `output/target`.
 
 ### Создание и публикация reference bundle (сопровождающий проекта)
 
-На машине, где доступны Buildroot workspace и `rk3568-br-release`:
+На машине, где доступны Buildroot-external-workspace и `rk3568-br-release`:
 
 ```bash
-./scripts/import_reference_assets.sh "$HOME/work" "$HOME/rk3568-br-release"
+./scripts/import_reference_assets.sh "$HOME/rk3568-br-workspace" "$HOME/rk3568-br-release"
 ./scripts/create_reference_bundle.sh
 ```
 
@@ -52,8 +52,6 @@
 dist/rk3568-ubuntu-reference-assets-v1.tar.gz
 dist/rk3568-ubuntu-reference-assets-v1.tar.gz.sha256
 ```
-
-Загрузите оба файла в GitHub Release. Для следующей версии задайте, например, `REFERENCE_BUNDLE_VERSION=v2 ./scripts/create_reference_bundle.sh`. Если меняются kernel, DTB, U-Boot, loader или модули, создайте новый архив и увеличьте версию bundle в имени файла/Release. Не коммитьте эти бинарники в Git: `reference/` исключён через `.gitignore`.
 
 ## Подготовка рабочей машины
 
@@ -93,7 +91,7 @@ ubuntu-26.04.1-preinstalled-server-arm64.img.xz
 
 ## Получение и установка reference bundle
 
-Скачайте `rk3568-ubuntu-reference-assets-v1.tar.gz` из Releases репозитория и выполните:
+Скачайте `rk3568-ubuntu-reference-assets-v1.tar.gz` [облака](https://nextcloud.inmys.online/s/WWoAqMSmHgjw98R?opendetails=) и выполните:
 
 ```bash
 ./scripts/install_reference_bundle.sh ~/Downloads/rk3568-ubuntu-reference-assets-v1.tar.gz
@@ -155,6 +153,7 @@ output/ubuntu-sd.img
 
 ## Прошивка eMMC через Maskrom
 
+Более подробно описано на [Wiki](https://wiki.inmys.ru/boards:nms-sm-rk3568:user-guide:xrock-install-and-emmc-burn:start)
 Перед прошивкой:
 
 - убедитесь, что собран `output/ubuntu-emmc.img`;
@@ -194,46 +193,3 @@ SD-образ `output/ubuntu-sd.img` создаётся тем же процес
 - cloud-init NoCloud для начальной настройки пользователя.
 
 Учётная запись `user` сейчас добавляется в `sudo` с `NOPASSWD`. Это настройка для лабораторной отладки; перед промышленным использованием её нужно пересмотреть.
-
-## Результат проверки на плате
-
-По фактически полученному загрузочному логу подтверждены:
-
-- U-Boot обнаруживает `extlinux.conf` и запускает Linux kernel `6.12.61`;
-- eMMC определяется как `/dev/mmcblk0`;
-- корневой раздел `/dev/mmcblk0p1` монтируется как `/`;
-- второй раздел монтируется в `/opt`;
-- Ubuntu 26.04.1 доходит до пользовательского пространства и login prompt;
-- cloud-init NoCloud обрабатывается, пользователь `user` может войти в систему;
-- HDMI-видеовыход на подключённом мониторе работает.
-
-Ограничения/незакрытые проверки:
-
-- установка XFCE и дополнительных desktop-пакетов через APT не была завершена из-за отсутствия сетевого доступа/доступа к пакетным репозиториям; это не проблема HDMI;
-- сетевое подключение и доступ в Интернет нужно настраивать/проверять отдельно;
-- CAN-интерфейсы требуют отдельной проверки после загрузки модулей;
-- `systemd-networkd-wait-online.service` в одном из логов завершался ошибкой, несмотря на то, что система загрузилась до login prompt;
-- сообщение U-Boot `bad CRC, using default environment` присутствовало, но не помешало загрузке.
-
-Настройка Интернета, установка GUI-пакетов, настройка CAN и эксплуатационная конфигурация Ubuntu не являются задачами данного image-builder этапа и должны документироваться отдельно.
-
-## Обновление проекта
-
-При обновлении Buildroot kernel/DTB/modules или Rockchip bootloader:
-
-1. Получить соответствующие `output/images` и `output/target` из новой проверенной сборки Buildroot.
-2. Обновить артефакты в `rk3568-br-release`, если изменились U-Boot или loader.
-3. Запустить `import_reference_assets.sh` с новыми исходными каталогами.
-4. Проверить `reference/SHA256SUMS` и собрать новый архив через `create_reference_bundle.sh`.
-5. Протестировать новый образ на целевой плате.
-6. Опубликовать новый reference bundle в GitHub Release и обновить версию/описание в README и Wiki.
-
-При обновлении Ubuntu версии измените версию, URL и зафиксированный SHA256 в `scripts/download_ubuntu.sh`, а затем проверьте, что rootfs нового образа совместим с используемыми kernel, modules и DTB.
-
-## Безопасность и ограничения
-
-- Не добавляйте в Git base image Ubuntu, reference binaries, готовые raw images и временные файлы.
-- Не публикуйте загрузочные логи без проверки: они могут содержать MAC/IP-адреса, host keys и другую информацию конкретной платы.
-- Пароль пользователя вводится интерактивно при сборке и сохраняется в образе в виде хеша; не передавайте готовый образ как универсальный, если в нём используется общий пароль.
-- Перед прошивкой проверяйте подключённую плату и подтверждение `FLASH`.
-- Этот проект рассчитан на конкретную плату и проверенную связку kernel/DTB/modules/U-Boot. Перенос на другую ревизию платы требует отдельной проверки.
