@@ -1,4 +1,4 @@
-# Ubuntu 26.04.1 на NMS-SM-RK3568 / NMS-SM-EVM
+# Ubuntu 26.04.1 на NMS-SM-RK3568
 
 ## Назначение
 
